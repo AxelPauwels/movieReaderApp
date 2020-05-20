@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MovieReaderApp;
 
-class Credentials
+class CredentialsExample
 {
     // X_RAPIDAPI CREDENTIALS
     // ----------------------

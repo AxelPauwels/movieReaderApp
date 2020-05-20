@@ -1,0 +1,55 @@
+# APPLICATION
+#-------------------------
+/credentials/*
+
+
+
+# OS-SPECIFIC
+#-------------------------
+.DS_Store
+
+
+
+# VAGRANT STUFF
+#-------------------------
+
+
+
+# COMPOSER
+#-------------------------
+composer.lock
+
+
+
+# IDE Files
+#-------------------------
+/nbproject/
+.idea/*
+*.iml
+
+
+
+# PUPHPET
+#-------------------------
+
+
+
+# GRUMPHP
+#-------------------------
+
+
+
+# SUBLIME TEXT CACHE files
+#-------------------------
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+/tests/tests/
+/tests/results/
+
+
+
+# BUNDLER/RUBYGEMS
+#-------------------------

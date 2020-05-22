@@ -18,7 +18,7 @@ require_once(__ROOT__ . '/EpisodeSeason.php');
 use getID3;
 use mysqli;
 
-ini_set('memory_limit', '2G'); // increase memory for this php-process. (needed for get3ID process)
+ini_set('memory_limit', '1G'); // increase memory for this php-process. (needed for get3ID process)
 
 class ReadMovies
 {

@@ -18,7 +18,7 @@ require_once(__ROOT__ . '/EpisodeSeason.php');
 use getID3;
 use mysqli;
 
-ini_set('memory_limit', '1G'); // increase memory for this php-process. (needed for get3ID process)
+ini_set('memory_limit', '2G'); // increase memory for this php-process. (needed for get3ID process)
 
 class ReadMovies
 {
@@ -37,12 +37,6 @@ class ReadMovies
     const DB_TABLE_EPISODES = "episodes";
     const DB_TABLE_EPISODES_SEASON = "episodesSeizoen";
     const DB_TABLE_DOCUMENTARY_SEASON = "documentarySeizoen";
-
-    // Update these constants before RUNNING this file
-    // ----------------------------------------------------------------------------------------------------------------
-    const CONFIG_PATH_TO_DIR = "/Volumes/EXTSSD/5_iTunes_Done/_incomingMovies/doc";
-    const CONFIG_MOVIE_OR_EPISODE = self::MEDIA_TYPE_MOVIE; // Note: should not be 'episode' for documentary(Seasons)
-    const CONFIG_MOVIE_TYPE = self::MOVIE_TYPE_DOCUMENTARY; // this will be ignored if CONFIG_MOVIE_OR_EPISODE is 'episode'
 
     // Update these credentials in (Credentials.php) if TARGET database should be CHANGED
     // ----------------------------------------------------------------------------------------------------------------
@@ -96,6 +90,23 @@ class ReadMovies
      */
     private $isConfirmedSubDirectories = false; // insert objects into the DB or not
 
+    // settings that will be set by the user when the program starts running
+
+    /**
+     * @var string
+     */
+    private $configPathToDir = "";
+
+    /**
+     * @var string
+     */
+    private $configMovieOrEpisode = ""; // Note: should not be 'episode' for documentary(Seasons)
+
+    /**
+     * @var
+     */
+    private $configMovieType; // this will be ignored if CONFIG_MOVIE_OR_EPISODE is 'episode'
+
     /**
      * ReadMovies constructor.
      *
@@ -113,6 +124,34 @@ class ReadMovies
     //
     // private functions
     //
+    /**
+     * Ask the user for settings
+     */
+    private function getSettingsFromUser():void
+    {
+        $this->cli->newLine();
+
+        $this->configPathToDir = \realpath('.');
+        $this->configMovieOrEpisode = self::MEDIA_TYPE_MOVIE;
+        $this->configMovieType = self::MOVIE_TYPE_MOVIE;
+
+        $userInput = \readline($this->cli->colorOrange("Choose the type you want to process: movie, comedy, documentary or episodes ? (m,c,d,e) "));
+
+        switch (\strtolower($userInput)) {
+            case 'c':
+                $this->configMovieType = self::MOVIE_TYPE_COMEDY;
+                break;
+            case 'd':
+                $this->configMovieType = self::MOVIE_TYPE_DOCUMENTARY;
+                break;
+            case 'e':
+                // when media_type is episode, movie_type will be ignored
+                $this->configMovieOrEpisode = self::MEDIA_TYPE_EPISODE;
+                break;
+        }
+
+        $this->cli->newLine();
+    }
 
     /**
      * Ask the user a 1st confirmation: "Are these settings correct?"
@@ -135,23 +174,23 @@ class ReadMovies
         $this->cli->message(
             "SSH Tunnel required: " . PHP_TAB . PHP_TAB . PHP_TAB .
             $this->cli->colorWhite((self::DB_SSH_TUNNEL_REQUIRED) ? "true" : "false") .
-            " (Should be 'true' for Vagrant or RaspberryPi)",
+            " (Should be 'true' for [Vagrant] or [RaspberryPi])",
             $this->cli::ICON_TRIANGLE
         );
         $this->cli->message(
             "Local directory to read: " . PHP_TAB . PHP_TAB . PHP_TAB .
-            $this->cli->colorWhite(self::CONFIG_PATH_TO_DIR),
+            $this->cli->colorWhite($this->configPathToDir),
             $this->cli::ICON_TRIANGLE
         );
         $this->cli->message(
             "Media-type (movie | episode): " . PHP_TAB . PHP_TAB .
-            $this->cli->colorWhite(self::CONFIG_MOVIE_OR_EPISODE),
+            $this->cli->colorWhite($this->configMovieOrEpisode),
             $this->cli::ICON_TRIANGLE
         );
-        if (self::CONFIG_MOVIE_OR_EPISODE !== self::MEDIA_TYPE_EPISODE) {
+        if ($this->configMovieOrEpisode !== self::MEDIA_TYPE_EPISODE) {
             $this->cli->message(
                 "Movie-type (movie | comedy | documentary): " . PHP_TAB .
-                $this->cli->colorWhite(self::CONFIG_MOVIE_TYPE),
+                $this->cli->colorWhite($this->configMovieType),
                 $this->cli::ICON_TRIANGLE
             );
         }
@@ -313,7 +352,7 @@ class ReadMovies
 
         // GROOTTE
         // get filesize in human readable format
-        $rawFileSize = $this->humanFilesize((string)\filesize(self::CONFIG_PATH_TO_DIR . "/" . $rawFileName));
+        $rawFileSize = $this->humanFilesize((string)\filesize($this->configPathToDir . "/" . $rawFileName));
         if (\substr($rawFileSize, -1) === 'G') {
             $movie->grootte = \substr($rawFileSize, 0, \strlen($rawFileSize) - 1);
         } elseif (\substr($rawFileSize, -1) === 'M') {
@@ -407,7 +446,7 @@ class ReadMovies
         foreach ($rawFileNames as $rawFileName) {
             $movie = new Movie();
             $movie = $this->getMovieBasicInfo($movie, $rawFileName);
-            $movie = $this->getExtraInfo($movie, $rawFileName, self::CONFIG_PATH_TO_DIR);
+            $movie = $this->getExtraInfo($movie, $rawFileName, $this->configPathToDir);
 
             echo ". ";
             \array_push($movies, $movie);
@@ -464,7 +503,7 @@ class ReadMovies
      */
     private function createEpisodeSeasonFromSubDirectoryPath(string $path): EpisodeSeason
     {
-        $rawName = \str_replace(self::CONFIG_PATH_TO_DIR . "/", '', $path);
+        $rawName = \str_replace($this->configPathToDir . "/", '', $path);
         $episodeSeason = new EpisodeSeason();
 
         // TYPE
@@ -696,9 +735,9 @@ class ReadMovies
      */
     private function isEpisodeOrDocumentary(): bool
     {
-        return (self::CONFIG_MOVIE_OR_EPISODE === self::MEDIA_TYPE_EPISODE ||
-            (self::CONFIG_MOVIE_OR_EPISODE === self::MEDIA_TYPE_MOVIE &&
-                self::CONFIG_MOVIE_TYPE === self::MOVIE_TYPE_DOCUMENTARY)
+        return ($this->configMovieOrEpisode === self::MEDIA_TYPE_EPISODE ||
+            ($this->configMovieOrEpisode === self::MEDIA_TYPE_MOVIE &&
+                $this->configMovieType === self::MOVIE_TYPE_DOCUMENTARY)
         );
     }
 
@@ -709,8 +748,8 @@ class ReadMovies
      */
     private function isDocumentarySeason(): bool
     {
-        return (self::CONFIG_MOVIE_OR_EPISODE !== self::MEDIA_TYPE_EPISODE &&
-            self::CONFIG_MOVIE_TYPE === self::MOVIE_TYPE_DOCUMENTARY);
+        return ($this->configMovieOrEpisode !== self::MEDIA_TYPE_EPISODE &&
+            $this->configMovieType === self::MOVIE_TYPE_DOCUMENTARY);
     }
 
     /**
@@ -750,7 +789,7 @@ class ReadMovies
             $this->showMessageFoundFiles($messages, $path);
         } else {
             $this->cli->message(
-                "Error: The given path ('" . self::CONFIG_PATH_TO_DIR . "') is incorrect.",
+                "Error: The given path ('" . $this->configPathToDir . "') is incorrect.",
                 $this->cli::ICON_EXCLAMATION
             );
         }
@@ -767,8 +806,8 @@ class ReadMovies
     {
         $subDirectoryPaths = [];
 
-        if (\is_dir(self::CONFIG_PATH_TO_DIR)) {
-            $subDirectoryPaths = \glob(self::CONFIG_PATH_TO_DIR . '/*', GLOB_ONLYDIR);
+        if (\is_dir($this->configPathToDir)) {
+            $subDirectoryPaths = \glob($this->configPathToDir . '/*', GLOB_ONLYDIR);
         }
 
         if (!empty($subDirectoryPaths)) {
@@ -780,7 +819,7 @@ class ReadMovies
 
             foreach ($subDirectoryPaths as $subDirectoryPath) {
                 $this->cli->message(
-                    $this->cli->colorBlue(\str_replace(self::CONFIG_PATH_TO_DIR . "/", '', $subDirectoryPath)),
+                    $this->cli->colorBlue(\str_replace($this->configPathToDir . "/", '', $subDirectoryPath)),
                     $this->cli::ICON_DIRECTORY
                 );
             }
@@ -851,7 +890,7 @@ class ReadMovies
         $insertedDocumentaryEpisodeIds = [];
 
         // set tableName
-        switch (self::CONFIG_MOVIE_TYPE) {
+        switch ($this->configMovieType) {
             case self::MOVIE_TYPE_COMEDY:
                 $tableName = self::DB_TABLE_COMEDY;
                 break;
@@ -1296,12 +1335,13 @@ class ReadMovies
     }
 
     /**
-     * Show message: You didn't confirm anything to process
+     * Show message: There was nothing confirmed to process
      */
     private function showMessageNothingToProcess(): void
     {
-        $this->cli->message($this->cli->colorRed("You didn't confirm anything to process"),
+        $this->cli->message($this->cli->colorRed("There was nothing confirmed to process"),
             $this->cli::ICON_EXCLAMATION);
+        $this->cli->newLine();
     }
 
     /**
@@ -1323,9 +1363,9 @@ class ReadMovies
 
             $this->cli->message($this->cli->colorGray25($messageTitle));
 
-            if ($path !== self::CONFIG_PATH_TO_DIR) {
+            if ($path !== $this->configPathToDir) {
                 $this->cli->message(
-                    $this->cli->colorBlue(\str_replace(self::CONFIG_PATH_TO_DIR . "/", '', $path)),
+                    $this->cli->colorBlue(\str_replace($this->configPathToDir . "/", '', $path)),
                     $this->cli::ICON_DIRECTORY
                 );
             }
@@ -1408,12 +1448,14 @@ class ReadMovies
         $episodeSeasons = [];   // size/index is always the same like '$episodes'
         $rawFileNames = [];
 
+        $this->getSettingsFromUser();
+
         if ($this->askConfirmationSettings()) {
             $this->showMessageStartScanning();
 
             // scan directory: for files (skip this for episodes)
-            if (self::CONFIG_MOVIE_OR_EPISODE !== self::MEDIA_TYPE_EPISODE) {
-                $rawFileNames = $this->readFilesFromDirectory(self::CONFIG_PATH_TO_DIR);
+            if ($this->configMovieOrEpisode !== self::MEDIA_TYPE_EPISODE) {
+                $rawFileNames = $this->readFilesFromDirectory($this->configPathToDir);
 
                 if ($rawFileNames['fileCount'] > 0) {
                     $this->isProcessFiles = $this->askConfirmationRawFileNames($rawFileNames['fileCount']);
@@ -1447,7 +1489,7 @@ class ReadMovies
                         foreach ($subDirectoryPaths as $subDirectoryPath) {
                             $isConfirmedProcessEpisodes = false;
                             $directoryName = \str_replace(
-                                self::CONFIG_PATH_TO_DIR . "/",
+                                $this->configPathToDir . "/",
                                 "",
                                 $subDirectoryPath
                             );

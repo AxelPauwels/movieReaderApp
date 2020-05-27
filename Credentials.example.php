@@ -23,6 +23,7 @@ class CredentialsExample
     const DB_NAME = "***";
     const DB_PORT = 3307;
     const DB_SSH_TUNNEL_REQUIRED = false; // set this true if this is a connection to vagrant or raspberryPi
+    const BASE_URL = "http://***.local";
 
     // movies.local [Vragrant]
     // Note: Before this works: 1. run vagrant up | 2. Add sshKey to ~/.ssh/config | 3. make a ssh tunnel (here in PHP)
@@ -33,15 +34,6 @@ class CredentialsExample
 //    const DB_NAME = "***";
 //    const DB_PORT = 3307; // is tunneled
 //    const DB_SSH_TUNNEL_REQUIRED = true; // set this true if this is a connection to vagrant or raspberryPi
-
-    // movieserver.local [Vragrant]
-    // Note: Before this works: 1. run vagrant up | 2. Add sshKey to ~/.ssh/config | 3. make a ssh tunnel (here in PHP)
-//    const DB_WEBSITE_TARGET = "***"; // custom name to identify which website will be updated
-//    const DB_SERVERNAME = "127.0.0.1";
-//    const DB_USERNAME = "***";
-//    const DB_PASSWORD = "***";
-//    const DB_NAME = "***";
-//    const DB_PORT = 3307; // is tunneled
-//    const DB_SSH_TUNNEL_REQUIRED = true; // set this true if this is a connection to vagrant or raspberryPi
+//    const BASE_URL = "http://movies.local";
 
 }

@@ -16,6 +16,7 @@ require_once(__ROOT__ . '/Episode.php');
 require_once(__ROOT__ . '/EpisodeSeason.php');
 
 use getID3;
+use http\Url;
 use mysqli;
 
 ini_set('memory_limit', '2G'); // increase memory for this php-process. (needed for get3ID process)
@@ -48,6 +49,7 @@ class ReadMovies
     const DB_NAME = Credentials::DB_NAME;
     const DB_PORT = Credentials::DB_PORT;
     const DB_SSH_TUNNEL_REQUIRED = Credentials::DB_SSH_TUNNEL_REQUIRED;
+    const BASE_URL = Credentials::BASE_URL;
 
     /**
      * @var CustomCli
@@ -108,6 +110,11 @@ class ReadMovies
     private $configMovieType; // this will be ignored if CONFIG_MOVIE_OR_EPISODE is 'episode'
 
     /**
+     * @var array
+     */
+    private $imdbInfo = [];
+
+    /**
      * ReadMovies constructor.
      *
      * @param CustomCli $cli
@@ -127,7 +134,7 @@ class ReadMovies
     /**
      * Ask the user for settings
      */
-    private function getSettingsFromUser():void
+    private function getSettingsFromUser(): void
     {
         $this->cli->newLine();
 
@@ -364,7 +371,9 @@ class ReadMovies
         }
 
         // IMDB LINK
-        $movie->imdb = $this->getImdbUrl($movie->naam);
+        $this->getImdbInfo($movie->naam);
+        $movie->imdb = $this->getImdbUrl();
+        $movie->imageUrl = $this->getImdbImageUrl();
 
         return $movie;
     }
@@ -650,30 +659,11 @@ class ReadMovies
     }
 
     /**
-     * Get the imdb url for a movie
-     *
-     * @param string $title the title you want to search for
-     * @return string
-     */
-    private function getImdbUrl(string $title): string
-    {
-        $imdbBaseUrl = "https://www.imdb.com";
-        $imdbInfo = $this->getImdbInfo($title);
-
-        if (!empty($imdbInfo)) {
-            return $imdbBaseUrl . $imdbInfo['results'][0]['id'];
-        }
-
-        return $imdbBaseUrl;
-    }
-
-    /**
      * See Api docs: https://rapidapi.com/apidojo/api/imdb8/endpoints
      *
      * @param string $title
-     * @return array
      */
-    private function getImdbInfo(string $title): array
+    private function getImdbInfo(string $title): void
     {
         $curl = curl_init();
 
@@ -700,10 +690,40 @@ class ReadMovies
         if ($err) {
             echo "cURL Error #:" . $err;
         } else {
-            return json_decode($response, true);
+            $this->imdbInfo = json_decode($response, true);
+        }
+    }
+
+    /**
+     * Get the imdb url for a movie
+     *
+     * @return string
+     */
+    private function getImdbUrl(): string
+    {
+        $imdbBaseUrl = "https://www.imdb.com";
+
+        if (!empty($this->imdbInfo)) {
+            return $imdbBaseUrl . $this->imdbInfo['results'][0]['id'];
         }
 
-        return [];
+        return $imdbBaseUrl;
+    }
+
+    /**
+     * Get the imdb image-url for a movie
+     *
+     * @return string
+     */
+    private function getImdbImageUrl(): string
+    {
+        if (!empty($this->imdbInfo)) {
+            if (isset($this->imdbInfo['results'][0]['image']['url'])) {
+                return $this->imdbInfo['results'][0]['image']['url'];
+            }
+        }
+
+        return self::BASE_URL . "/assets/images/films/COMINGSOON.png";
     }
 
     /**
@@ -932,13 +952,14 @@ class ReadMovies
                     audioSampleRate,
                     audioBitsPerSample,
                     audioChannelmode,
-                    audioChannels
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    audioChannels,
+                    imageUrl
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
 
             // prepare and bind (allowed types: i - integer | d - double | s - string | b - BLOB)
             $stmt->bind_param(
-                "sisssdsisiissssssddsdisi",
+                "sisssdsisiissssssddsdisis",
                 $naam,
                 $jaar,
                 $type,
@@ -962,7 +983,8 @@ class ReadMovies
                 $audioSampleRate,
                 $audioBitsPerSample,
                 $audioChannelmode,
-                $audioChannels
+                $audioChannels,
+                $imageUrl
             );
 
             foreach ($movies as $movie) {
@@ -990,6 +1012,7 @@ class ReadMovies
                 $audioBitsPerSample = $movie->audioBitsPerSample;
                 $audioChannelmode = $movie->audioChannelmode;
                 $audioChannels = $movie->audioChannels;
+                $imageUrl = $movie->imageUrl;
 
                 $stmt->execute();
 
@@ -1027,10 +1050,12 @@ class ReadMovies
     private function insertEpisodeSeason(EpisodeSeason $episodeSeason, bool $isDocumentarySeason = false): int
     {
         $tableName = self::DB_TABLE_EPISODES_SEASON;
+        $imagePath = Credentials::BASE_URL . "/assets/images/episodes/";
 
-        // update the table if it's DocumentarySeason
+        // update the table and imagePath if it's DocumentarySeason
         if ($isDocumentarySeason) {
             $tableName = self::DB_TABLE_DOCUMENTARY_SEASON;
+            $imagePath = Credentials::BASE_URL . "/assets/images/documentary/";
         }
 
         $stmt = $this->dbConn->prepare(
@@ -1045,13 +1070,14 @@ class ReadMovies
                 aantalDownloads,
                 aantalRequests,
                 imdb,
-                download
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                download,
+                imageUrl
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 
         // prepare and bind (allowed types: i - integer | d - double | s - string | b - BLOB)
         $stmt->bind_param(
-            "sississiisi",
+            "sississiisis",
             $naam,
             $jaar,
             $type,
@@ -1062,7 +1088,8 @@ class ReadMovies
             $aantalDownloads,
             $aantalRequests,
             $imdb,
-            $download
+            $download,
+            $imageUrl
         );
 
         $naam = $episodeSeason->naam;
@@ -1076,6 +1103,7 @@ class ReadMovies
         $aantalRequests = $episodeSeason->aantalRequests;
         $imdb = $episodeSeason->imdb;
         $download = $episodeSeason->download;
+        $imageUrl = $imagePath . $episodeSeason->naam . ' ' . $episodeSeason->jaar . '.png';
 
         $stmt->execute();
         $stmt->close();
@@ -1432,9 +1460,68 @@ class ReadMovies
         }
     }
 
+    /**
+     * Temp called function
+     */
+    private function updateExistingMovieImageUrls()
+    {
+        //Settings to modify before running
+        $tableName = self::DB_TABLE_DOCUMENTARY;
+        $rowCountMin = 0;
+        $rowCountMax = $rowCountMin + 500; // 500 request per month (RAPIDAPI basic plan)
+
+        $sql = "SELECT * FROM $tableName WHERE fileFormat IS NULL AND id > $rowCountMin AND id <= $rowCountMax";
+        if (self::DB_TABLE_DOCUMENTARY === $tableName) {
+            $sql .= " AND seizoenId = -1 ";
+        }
+
+        $result = $this->dbConn->query($sql);
+        if ($result->num_rows <= 0) {
+            echo "0 results" . PHP_EOL;
+        }
+
+        $stmt = $this->dbConn->prepare("UPDATE $tableName SET imageUrl=? WHERE id=?");
+        $stmt->bind_param("si", $imageUrl, $id);
+
+        $this->cli->message("Updating:", $this->cli::ICON_CHECK);
+        while ($row = $result->fetch_assoc()) {
+            $this->getImdbInfo($row['naam']);
+            $id = $row['id'];
+            $imageUrl = $this->getImdbImageUrl();;
+
+            $this->cli->message($row['naam']);
+            $stmt->execute();
+        }
+
+        $stmt->close();
+    }
+
     //
     // public functions
     //
+
+    /**
+     * Temp function to fix existing database records
+     * 
+     * This updates movie, comedy, or none-episode documentary,
+     * Episodes and Documentary-episodes will use a custom (not imdb) cover
+     */
+    public function updateExistingRecordsImagUrl()
+    {
+        // open SSH tunnel if needed
+        if (self::DB_SSH_TUNNEL_REQUIRED) {
+            $this->sshTunneler->makeSshTunnel();
+        }
+
+        $this->makeDatabaseConnection();
+        $this->updateExistingMovieImageUrls();
+        $this->closeDatabaseConnection();
+
+        // close SSH tunnel if it was opened
+        if (self::DB_SSH_TUNNEL_REQUIRED) {
+            $this->sshTunneler->closeSshTunnel();
+        }
+    }
 
     /**
      * Main function: start running this script.
@@ -1579,3 +1666,4 @@ class ReadMovies
 // instantiate and run the main function of readMovies
 $readMovies = new ReadMovies(new CustomCli(), new getID3, new SshTunneler());
 $readMovies->run();
+//$readMovies->updateExistingRecordsImagUrl();

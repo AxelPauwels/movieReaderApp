@@ -77,6 +77,11 @@ class EpisodeSeason
     public $download = 0;
 
     /**
+     * @var string
+     */
+    public $imageUrl = "";
+
+    /**
      * Movie constructor.
      */
     public function __construct()

@@ -145,6 +145,11 @@ class Movie
     public $audioChannels = 0;
 
     /**
+     * @var string
+     */
+    public $imageUrl = "";
+
+    /**
      * Movie constructor.
      */
     public function __construct()
@@ -153,28 +158,4 @@ class Movie
         $this->jaar = date('Y', time());
         $this->toegevoegd = date('Y-m-d', time());
     }
-
-
-//SQL STATEMENTS -> TODO FOR EPISODES
-//
-//ALTER TABLE episodes
-//ADD fileFormat varchar(15),
-//ADD mimeType varchar(25),
-//ADD encoding varchar(15),
-//ADD bitrate varchar(25),
-//ADD videoDataformat varchar(25),
-//ADD videoResolution varchar(15),
-//ADD videoPixelAspectRatio decimal(5,2),
-//ADD videoFrameRate decimal(5,2),
-//ADD audioCodec varchar(35),
-//ADD audioSampleRate decimal(10,2),
-//ADD audioBitsPerSample int(25),
-//ADD audioChannelmode varchar(15),
-//ADD audioChannels int(5);
-
-//ALTER TABLE episodes
-//MODIFY duur varchar(10);
-
-//UPDATE films SET duur = REPLACE(duur, '.', ':');
-
 }
